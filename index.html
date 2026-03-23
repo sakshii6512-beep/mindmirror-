@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="en" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SentinelAI</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=Outfit:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+
+    .scan-line {
+      background: linear-gradient(90deg, transparent 0%, rgba(0,255,136,0.08) 50%, transparent 100%);
+      animation: scanMove 3s ease-in-out infinite;
+    }
+    @keyframes scanMove {
+      0%, 100% { transform: translateX(-100%); }
+      50% { transform: translateX(100%); }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(0,255,136,0.15); }
+      50% { box-shadow: 0 0 40px rgba(0,255,136,0.3); }
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-up { animation: fadeSlideUp 0.5s ease-out forwards; }
+    .animate-fade-up-delay-1 { animation: fadeSlideUp 0.5s ease-out 0.1s forwards; opacity: 0; }
+    .animate-fade-up-delay-2 { animation: fadeSlideUp 0.5s ease-out 0.2s forwards; opacity: 0; }
+    .animate-fade-up-delay-3 { animation: fadeSlideUp 0.5s ease-out 0.3s forwards; opacity: 0; }
+    .pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
+
+    .risk-high { border-left: 4px solid #ff3b5c; }
+    .risk-medium { border-left: 4px solid #ffb020; }
+    .risk-low { border-left: 4px solid #00ff88; }
+
+    .toast-container {
+      position: fixed; top: 20px; right: 20px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .toast {
+      padding: 12px 20px; border-radius: 8px; font-family: 'Outfit', sans-serif;
+      font-size: 14px; animation: fadeSlideUp 0.3s ease-out forwards;
+      max-width: 320px;
+    }
+    .toast-success { background: #0a2a1a; border: 1px solid #00ff88; color: #00ff88; }
+    .toast-error { background: #2a0a0a; border: 1px solid #ff3b5c; color: #ff3b5c; }
+
+    .highlight-phrase {
+      background: rgba(255,59,92,0.25);
+      border-bottom: 2px solid #ff3b5c;
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: #ff8fa3;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #00ff88;
+      box-shadow: 0 0 0 2px rgba(0,255,136,0.15);
+    }
+
+    .confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9998; animation: fadeSlideUp 0.2s ease-out;
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0f1a; }
+    ::-webkit-scrollbar-thumb { background: #1a2535; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #253545; }
+
+    .nav-btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      border: 1px solid transparent;
+    }
+    .nav-btn-active {
+      background: rgba(0,255,136,0.15);
+      color: #00ff88;
+      border-color: #00ff88;
+    }
+    .nav-btn-inactive {
+      color: #6b7a8d;
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full" style="font-family: 'Outfit', sans-serif; background: #060b14; color: #c8d6e5;">
+  <div id="app-root" class="h-full w-full overflow-auto">
+   <!-- AUTH SCREEN -->
+   <div id="auth-screen" class="h-full w-full flex items-center justify-center" style="background: radial-gradient(ellipse at 30% 20%, #0a1628 0%, #060b14 60%, #030508 100%);">
+    <div class="w-full max-w-md px-6">
+     <div class="text-center mb-8 animate-fade-up">
+      <div class="inline-flex items-center gap-3 mb-4">
+       <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #00ff88, #00cc6a);">
+        <i data-lucide="shield-check" style="width:28px;height:28px;color:#060b14;"></i>
+       </div>
+       <div>
+        <h1 id="auth-title" class="text-3xl font-bold tracking-tight" style="color:#00ff88;">SentinelAI</h1>
+       </div>
+      </div>
+      <p id="auth-tagline" class="text-sm" style="color:#6b7a8d;">Real-Time Fraud Detection</p>
+     </div>
+     <div class="rounded-2xl p-6 animate-fade-up-delay-1" style="background:#0d1520; border:1px solid #1a2535;">
+      <div class="flex mb-6 gap-1 p-1 rounded-lg" style="background:#0a0f1a;">
+       <button id="login-tab" onclick="switchAuthTab('login')" class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all" style="background:#00ff8815;color:#00ff88;">Sign In</button> <button id="signup-tab" onclick="switchAuthTab('signup')" class="flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all" style="color:#6b7a8d;">Sign Up</button>
+      </div>
+      <form id="auth-form" onsubmit="handleAuth(event)">
+       <div id="name-field" class="mb-4 hidden">
+        <label for="auth-name" class="block text-xs font-medium mb-1.5" style="color:#6b7a8d;">Full Name</label> <input id="auth-name" type="text" placeholder="Enter your name" class="w-full px-4 py-2.5 rounded-lg text-sm transition-all" style="background:#0a0f1a;border:1px solid #1a2535;color:#c8d6e5;">
+       </div>
+       <div class="mb-4">
+        <label for="auth-email" class="block text-xs font-medium mb-1.5" style="color:#6b7a8d;">Email</label> <input id="auth-email" type="email" placeholder="you@example.com" required class="w-full px-4 py-2.5 rounded-lg text-sm transition-all" style="background:#0a0f1a;border:1px solid #1a2535;color:#c8d6e5;">
+       </div>
+       <div class="mb-6">
+        <label for="auth-password" class="block text-xs font-medium mb-1.5" style="color:#6b7a8d;">Password</label> <input id="auth-password" type="password" placeholder="••••••••" required minlength="4" class="w-full px-4 py-2.5 rounded-lg text-sm transition-all" style="background:#0a0f1a;border:1px solid #1a2535;color:#c8d6e5;">
+       </div>
+       <div id="otp-section" class="mb-6 hidden">
+        <label for="auth-otp" class="block text-xs font-medium mb-1.5" style="color:#6b7a8d;">OTP Code</label>
+        <div class="text-xs mb-3 p-3 rounded-lg flex items-start gap-2" style="background:#1a3a2a;border:1px solid #00ff8830;color:#00ff88;"><i data-lucide="mail" style="width:14px;height:14px;flex-shrink:0;margin-top:2px;"></i>
+         <div class="flex-1">
+          <div class="font-medium">
+           📧 OTP sent to <span id="otp-email-display" style="font-family:'JetBrains Mono',monospace;"></span>
+          </div>
+          <div class="text-xs mt-1" style="color:#00cc88;">
+           Check your inbox for the 6-digit verification code
+          </div>
+         </div>
+        </div><input id="auth-otp" type="text" placeholder="000000" maxlength="6" class="w-full px-4 py-2.5 rounded-lg text-sm transition-all text-center" style="background:#0a0f1a;border:1px solid #1a2535;color:#c8d6e5;font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:bold;">
+        <div class="flex items-center justify-between mt-3">
+         <div class="flex items-center gap-2">
+          <i data-lucide="clock" style="width:14px;height:14px;color:#ffb020;"></i> <span id="otp-timer" class="text-xs font-mono" style="color:#ffb020;">01:00</span>
+         </div><button id="otp-resend-btn" type="button" onclick="resendOtp()" class="text-xs px-3 py-1 rounded transition-all opacity-50 cursor-not-allowed" style="color:#6b7a8d;border:1px solid #6b7a8d30;" disabled>Resend Code</button>
+        </div>
+       </div><button type="submit" id="auth-submit-btn" class="w-full py-3 rounded-lg font-semibold text-sm transition-all hover:opacity-90" style="background:linear-gradient(135deg,#00ff88,#00cc6a);color:#060b14;"> Sign In </button>
+       <p id="auth-error" class="text-xs mt-3 text-center hidden" style="color:#ff3b5c;"></p>
+      </form>
+     </div>
+     <p class="text-center text-xs mt-4 animate-fade-up-delay-2" style="color:#3a4a5a;">Demo: use any email/password to get started</p>
+    </div>
+   </div><!-- MAIN DASHBOARD -->
+   <div id="dashboard-screen" class="h-full w-full hidden" style="background:#060b14;">
+    <div class="flex flex-col h-full">
+     <!-- Top Nav -->
+     <header class="flex items-center justify-between px-6 py-3 shrink-0" style="background:#0a1018;border-bottom:1px solid #1a2535;">
+      <div class="flex items-center gap-3">
+       <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#00ff88,#00cc6a);">
+        <i data-lucide="shield-check" style="width:18px;height:18px;color:#060b14;"></i>
+       </div><span id="nav-title" class="font-bold text-lg" style="color:#00ff88;">SentinelAI</span>
+      </div>
+      <div class="flex items-center gap-4">
+       <div id="nav-buttons" class="flex items-center gap-2">
+        <button onclick="goToDashboard()" class="nav-btn nav-btn-active" style="background:rgba(0,255,136,0.15);color:#00ff88;border-color:#00ff88;">Dashboard</button> <button onclick="goToAnalyzer('text')" class="nav-btn nav-btn-inactive">Text</button> <button onclick="goToAnalyzer('url')" class="nav-btn nav-btn-inactive">URL</button> <button onclick="goToAnalyzer('voice')" class="nav-btn nav-btn-inactive">Voice</button>
+       </div>
+       <div style="width:1px;height:20px;background:#1a2535;"></div><span id="user-display" class="text-xs" style="color:#6b7a8d;"></span> <button onclick="handleLogout()" class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-all hover:opacity-80" style="color:#ff3b5c;border:1px solid #ff3b5c30;"> <i data-lucide="log-out" style="width:14px;height:14px;"></i> Logout </button>
+      </div>
+     </header><!-- Main Content -->
+     <div class="flex-1 overflow-auto p-4 md:p-6">
+      <div class="max-w-7xl mx-auto">
+       <!-- DASHBOARD VIEW -->
+       <div id="dashboard-view">
+        <!-- Hero Stats Section -->
+        <div class="mb-8 rounded-2xl p-6 overflow-hidden" style="background:linear-gradient(135deg,#0d1520 0%,#1a2a3a 100%);border:1px solid #1a2535;position:relative;">
+         <div class="absolute inset-0 opacity-10 scan-line" style="pointer-events:none;"></div>
+         <div class="relative z-10">
+          <h2 class="text-xs font-bold mb-4 uppercase tracking-widest" style="color:#00ff88;">Threat Dashboard</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+           <div class="rounded-xl p-4 backdrop-blur-sm" style="background:#00ff8810;border:1px solid #00ff8830;">
+            <div class="flex items-center justify-between">
+             <div>
+              <div class="text-xs mb-1" style="color:#6b7a8d;">
+               Total Scans
+              </div>
+              <div id="stat-total" class="text-3xl font-bold" style="color:#00ff88;">
+               0
+              </div>
+             </div><i data-lucide="scan" style="width:28px;height:28px;color:#00ff88;opacity:0.5;"></i>
+            </div>
+           </div>
+           <div class="rounded-xl p-4 backdrop-blur-sm" style="background:#ff3b5c10;border:1px solid #ff3b5c30;">
+            <div class="flex items-center justify-between">
+             <div>
+              <div class="text-xs mb-1" style="color:#6b7a8d;">
+               High Risk
+              </div>
+              <div id="stat-high" class="text-3xl font-bold" style="color:#ff3b5c;">
+               0
+              </div>
+             </div><i data-lucide="alert-triangle" style="width:28px;height:28px;color:#ff3b5c;opacity:0.5;"></i>
+            </div>
+           </div>
+           <div class="rounded-xl p-4 backdrop-blur-sm" style="background:#ffb02010;border:1px solid #ffb02030;">
+            <div class="flex items-center justify-between">
+             <div>
+              <div class="text-xs mb-1" style="color:#6b7a8d;">
+               Medium Risk
+              </div>
+              <div id="stat-medium" class="text-3xl font-bold" style="color:#ffb020;">
+               0
+              </div>
+             </div><i data-lucide="alert-circle" style="width:28px;height:28px;color:#ffb020;opacity:0.5;"></i>
+            </div>
+           </div>
+           <div class="rounded-xl p-4 backdrop-blur-sm" style="background:#00ff8810;border:1px solid #00ff8830;">
+            <div class="flex items-center justify-between">
+             <div>
+              <div class="text-xs mb-1" style="color:#6b7a8d;">
+               Safe
+              </div>
+              <div id="stat-low" class="text-3xl font-bold" style="color:#00ff88;">
+               0
+              </div>
+             </div><i data-lucide="check-circle" style="width:28px;height:28px;color:#00ff88;opacity:0.5;"></i>
+            </div>
+           </div>
+          </div>
+         </div>
+        </div><!-- Dashboard Quick Access Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+         <!-- Text Analyzer Card -->
+         <div onclick="goToAnalyzer('text')" class="rounded-2xl p-6 cursor-pointer transition-all hover:scale-105 hover:shadow-lg" style="background:linear-gradient(135deg,#1a2a3a,#0d1520);border:1px solid #6366f130;animation:fadeSlideUp 0.5s ease-out forwards;">
+          <div class="flex items-center justify-between mb-4">
+           <div class="w-12 h-12 rounded-lg flex items-center justify-center" style="background:#6366f120;">
+            <i data-lucide="message-square" style="width:24px;height:24px;color:#6366f1;"></i>
+           </div><i data-lucide="arrow-right" style="width:18px;height:18px;color:#6366f140;"></i>
+          </div>
+          <h3 class="font-bold text-lg mb-1" style="color:#c8d6e5;">Text Message Analyzer</h3>
+          <p class="text-xs mb-3" style="color:#6b7a8d;">SMS &amp; Email Detection</p>
+          <p class="text-xs leading-relaxed" style="color:#3a4a5a;">Analyze suspicious messages, emails, and text content for phishing and fraud indicators.</p>
+         </div><!-- URL Analyzer Card -->
+         <div onclick="goToAnalyzer('url')" class="rounded-2xl p-6 cursor-pointer transition-all hover:scale-105 hover:shadow-lg" style="background:linear-gradient(135deg,#1a2a3a,#0d1520);border:1px solid #f59e0b30;animation:fadeSlideUp 0.5s ease-out 0.1s forwards;opacity:0;">
+          <div class="flex items-center justify-between mb-4">
+           <div class="w-12 h-12 rounded-lg flex items-center justify-center" style="background:#f59e0b20;">
+            <i data-lucide="link" style="width:24px;height:24px;color:#f59e0b;"></i>
+           </div><i data-lucide="arrow-right" style="width:18px;height:18px;color:#f59e0b40;"></i>
+          </div>
+          <h3 class="font-bold text-lg mb-1" style="color:#c8d6e5;">URL Scanner</h3>
+          <p class="text-xs mb-3" style="color:#6b7a8d;">Malicious Link Detection</p>
+          <p class="text-xs leading-relaxed" style="color:#3a4a5a;">Scan URLs for malicious domains, phishing attempts, and suspicious patterns.</p>
+         </div><!-- Voice Analyzer Card -->
+         <div onclick="goToAnalyzer('voice')" class="rounded-2xl p-6 cursor-pointer transition-all hover:scale-105 hover:shadow-lg" style="background:linear-gradient(135deg,#1a2a3a,#0d1520);border:1px solid #10b98130;animation:fadeSlideUp 0.5s ease-out 0.2s forwards;opacity:0;">
+          <div class="flex items-center justify-between mb-4">
+           <div class="w-12 h-12 rounded-lg flex items-center justify-center" style="background:#10b98120;">
+            <i data-lucide="mic" style="width:24px;height:24px;color:#10b981;"></i>
+           </div><i data-lucide="arrow-right" style="width:18px;height:18px;color:#10b98140;"></i>
+          </div>
+          <h3 class="font-bold text-lg mb-1" style="color:#c8d6e5;">Voice Transcript Analyzer</h3>
+          <p class="text-xs mb-3" style="color:#6b7a8d;">Call &amp; Audio Detection</p>
+          <p class="text-xs leading-relaxed" style="color:#3a4a5a;">Analyze voice-to-text transcripts and call recordings for fraud and scam language.</p>
+         </div>
+        </div><!-- Scan History Panel -->
+        <div class="rounded-2xl overflow-hidden" style="background:#0d1520;border:1px solid #1a2535;">
+         <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color:#1a2535;background:linear-gradient(90deg,#1a2a3a,#0d1520);">
+          <h3 class="font-bold text-sm flex items-center gap-2" style="color:#c8d6e5;"><i data-lucide="history" style="width:16px;height:16px;color:#00ff88;"></i> Recent Activity</h3><button onclick="requestClearAll()" id="btn-clear-all" class="text-xs px-2 py-1 rounded transition-all hover:opacity-80 hidden" style="color:#ff3b5c;border:1px solid #ff3b5c30;">Clear</button>
+         </div>
+         <div id="history-list" class="p-3 max-h-96 overflow-auto">
+          <div id="history-empty" class="flex flex-col items-center justify-center py-8 text-center"><i data-lucide="inbox" style="width:40px;height:40px;color:#1a2535;"></i>
+           <p class="text-xs mt-3" style="color:#3a4a5a;">No scans yet.<br>
+             Start analyzing to build history.</p>
+          </div>
+         </div>
+        </div>
+       </div><!-- TEXT ANALYZER VIEW -->
+       <div id="text-analyzer-view" class="hidden">
+        <div class="rounded-2xl overflow-hidden" style="background:#0d1520;border:1px solid #1a2535;animation:fadeSlideUp 0.5s ease-out forwards;">
+         <div class="px-5 py-4 border-b flex items-center gap-3" style="border-color:#1a2535;background:linear-gradient(90deg,#1a2a3a,#0d1520);">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background:#6366f120;">
+           <i data-lucide="message-square" style="width:20px;height:20px;color:#6366f1;"></i>
+          </div>
+          <div>
+           <h3 class="font-bold text-lg" style="color:#c8d6e5;">Text Message Analyzer</h3>
+           <p class="text-xs" style="color:#3a4a5a;">SMS, Email &amp; Chat Detection</p>
+          </div>
+         </div>
+         <div class="p-6">
+          <label class="block text-xs font-bold mb-2 uppercase tracking-widest" style="color:#6b7a8d;">Paste suspicious message or email</label> <textarea id="text-input" rows="8" placeholder="Paste SMS, email, or messaging app content here..." class="w-full px-4 py-3 rounded-lg text-sm transition-all resize-none mb-4" style="background:#0a0f1a;border:1px solid #1a2535;color:#c8d6e5;font-family:'JetBrains Mono',monospace;font-size:12px;"></textarea> <button onclick="analyzeText()" id="btn-analyze-text" class="w-full py-3 rounded-lg font-semibold text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:1px solid #6366f130;"> <i data-lucide="zap" style="width:16px;height:16px;"></i> Analyze Message </button>
+         </div>
+        </div>
+       </div><!-- URL ANALYZER VIEW -->
+       <div id="url-analyzer-view" class="hidden">
+        <div class="rounded-2xl overflow-hidden" style="background:#0d1520;border:1px solid #1a2535;animation:fadeSlideUp 0.5s ease-out forwards;">
+         <div class="px-5 py-4 border-b flex items-center gap-3" style="border-color:#1a2535;background:linear-gradient(90deg,#1a2a3a,#0d1520);">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background:#f59e0b20;">
+           <i data-lucide="link" style="width:20px;height:20px;color:#f59e0b;"></i>
+          </div>
+          <div>
+           <h3 class="font-bold text-lg" style="color:#c8d6e5;">URL Scanner</h3>
+           <p class="text-xs" style="color:#3a4a5a;">Malicious Link &amp; Domain Detection</p>
+          </div>
+         </div>
+         <div class="p-6">
+          <label class="block text-xs font-bold mb-2 uppercase tracking-widest" style="color:#6b7a8d;">Enter suspicious URL</label> <input id="url-input" type="text" placeholder="https://suspicious-link.xyz/..." class="w-full px-4 py-3 rounded-lg text-sm transition-all mb-4" style="background:#0a0f1a;border:1px solid #1a2535;color:#c8d6e5;font-family:'JetBrains Mono',monospace;font-size:12px;">
+          <div class="rounded-lg p-4 mb-4" style="background:#3a4a5a10;border:1px solid #3a4a5a30;">
+           <p class="text-xs leading-relaxed" style="color:#6b7a8d;"><i data-lucide="info" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:8px;"></i> Our scanner checks for suspicious domains, phishing indicators, executable files, URL obfuscation, brand impersonation, and other malicious patterns.</p>
+          </div><button onclick="analyzeUrl()" id="btn-analyze-url" class="w-full py-3 rounded-lg font-semibold text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:1px solid #f59e0b30;"> <i data-lucide="shield" style="width:16px;height:16px;"></i> Scan URL </button>
+         </div>
+        </div>
+       </div><!-- VOICE ANALYZER VIEW -->
+       <div id="voice-analyzer-view" class="hidden">
+        <div class="rounded-2xl overflow-hidden" style="background:#0d1520;border:1px solid #1a2535;animation:fadeSlideUp 0.5s ease-out forwards;">
+         <div class="px-5 py-4 border-b flex items-center gap-3" style="border-color:#1a2535;background:linear-gradient(90deg,#1a2a3a,#0d1520);">
+          <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background:#10b98120;">
+           <i data-lucide="mic" style="width:20px;height:20px;color:#10b981;"></i>
+          </div>
+          <div>
+           <h3 class="font-bold text-lg" style="color:#c8d6e5;">Voice Transcript Analyzer</h3>
+           <p class="text-xs" style="color:#3a4a5a;">Call Recording &amp; Audio Detection</p>
+          </div>
+         </div>
+         <div class="p-6">
+          <label class="block text-xs font-bold mb-2 uppercase tracking-widest" style="color:#6b7a8d;">Enter voice-to-text transcript</label> <textarea id="voice-input" rows="8" placeholder="Paste audio transcription or call recording text..." class="w-full px-4 py-3 rounded-lg text-sm transition-all resize-none mb-4" style="background:#0a0f1a;border:1px solid #1a2535;color:#c8d6e5;font-family:'JetBrains Mono',monospace;font-size:12px;"></textarea> <button onclick="analyzeVoice()" id="btn-analyze-voice" class="w-full py-3 rounded-lg font-semibold text-sm transition-all hover:opacity-90 flex items-center justify-center gap-2" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:1px solid #10b98130;"> <i data-lucide="volume-2" style="width:16px;height:16px;"></i> Analyze Transcript </button>
+         </div>
+        </div>
+       </div><!-- ANALYSIS RESULT PANEL (Shared across all analyzer views) -->
+       <div id="result-panel" class="mt-6 hidden">
+        <div class="rounded-2xl overflow-hidden" style="background:#0d1520;border:1px solid #1a2535;">
+         <div class="px-5 py-4 border-b flex items-center justify-between" style="border-color:#1a2535;background:linear-gradient(90deg,#1a2a3a,#0d1520);">
+          <h3 class="font-bold text-sm flex items-center gap-2" style="color:#c8d6e5;"><i data-lucide="eye" style="width:16px;height:16px;color:#00ff88;"></i> Analysis Result</h3><span id="result-badge" class="text-xs font-bold px-3 py-1 rounded-full"></span>
+         </div>
+         <div class="p-5">
+          <div id="result-card" class="rounded-xl p-5" style="background:#0a0f1a;border:1px solid #1a2535;">
+           <div class="mb-5">
+            <div class="flex justify-between items-center mb-2"><span class="text-xs font-medium" style="color:#6b7a8d;">Risk Score</span> <span id="result-score-text" class="font-mono font-bold text-lg"></span>
+            </div>
+            <div class="w-full h-3 rounded-full overflow-hidden" style="background:#1a2535;">
+             <div id="result-score-bar" class="h-full rounded-full transition-all" style="width:0%;"></div>
+            </div>
+           </div>
+           <div class="mb-5">
+            <h4 class="text-xs font-bold mb-2 uppercase tracking-widest" style="color:#6b7a8d;"><i data-lucide="brain" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i> Analysis Insights</h4>
+            <p id="result-analysis" class="text-sm leading-relaxed p-3 rounded-lg" style="background:#1a2a3a;color:#9ba8b7;border:1px solid #2a3a4a;"></p>
+           </div>
+           <div id="flagged-section" class="hidden">
+            <h4 class="text-xs font-bold mb-2 uppercase tracking-widest" style="color:#ff3b5c;"><i data-lucide="alert-triangle" style="width:12px;height:12px;display:inline;vertical-align:middle;margin-right:4px;"></i> Detected Threats</h4>
+            <div id="flagged-phrases" class="flex flex-wrap gap-2" style="font-family:'JetBrains Mono',monospace;font-size:11px;"></div>
+           </div>
+          </div>
+         </div>
+        </div>
+       </div><!-- Language Selector -->
+       <div class="mt-6 flex justify-center">
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-lg" style="background:#0d1520;border:1px solid #1a2535;"><span class="text-xs" style="color:#6b7a8d;">Analysis Language:</span> <select id="lang-select" class="text-xs rounded-md px-3 py-1 transition-all" style="background:#0a0f1a;border:1px solid #1a2535;color:#00ff88;font-weight:bold;"> <option value="en">🇬🇧 English</option> <option value="mr">🇮🇳 मराठी</option> </select>
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+   </div><!-- Confirm Dialog -->
+   <div id="confirm-dialog" class="confirm-overlay hidden">
+    <div class="rounded-2xl p-6 max-w-sm w-full mx-4" style="background:#0d1520;border:1px solid #1a2535;">
+     <h3 id="confirm-title" class="font-semibold mb-2" style="color:#c8d6e5;"></h3>
+     <p id="confirm-message" class="text-sm mb-5" style="color:#6b7a8d;"></p>
+     <div class="flex gap-3">
+      <button onclick="cancelConfirm()" class="flex-1 py-2 rounded-lg text-sm font-medium transition-all" style="background:#1a2535;color:#6b7a8d;">Cancel</button> <button onclick="executeConfirm()" id="confirm-action-btn" class="flex-1 py-2 rounded-lg text-sm font-medium transition-all" style="background:#ff3b5c;color:#fff;">Confirm</button>
+     </div>
+    </div>
+   </div><!-- Toast Container -->
+   <div id="toast-container" class="toast-container"></div>
+  </div>
+  <script>
+// ============================================================
+// STATE
+// ============================================================
+let currentUser = null;
+let authMode = 'login';
+let currentView = 'dashboard';
+let scanHistory = [];
+let confirmCallback = null;
+const users = {};
+let otpEnabled = true;
+let currentOtp = null;
+let currentAuthEmail = null;
+let otpTimerInterval = null;
+let otpTimeRemaining = 60;
+
+// ============================================================
+// PHISHING DETECTION ENGINE
+// ============================================================
+const SCAM_PATTERNS_EN = [
+  { phrase: 'click here', weight: 15, reason: 'Urgency to click a link' },
+  { phrase: 'claim your prize', weight: 25, reason: 'Prize claim scam pattern' },
+  { phrase: 'you have won', weight: 22, reason: 'Fake winning notification' },
+  { phrase: 'congratulations', weight: 12, reason: 'Common phishing opener' },
+  { phrase: 'act now', weight: 18, reason: 'High-pressure urgency tactic' },
+  { phrase: 'limited time', weight: 16, reason: 'Artificial scarcity pressure' },
+  { phrase: 'verify your account', weight: 22, reason: 'Account verification phishing' },
+  { phrase: 'suspend', weight: 18, reason: 'Account suspension threat' },
+  { phrase: 'urgent', weight: 15, reason: 'Creating false urgency' },
+  { phrase: 'immediately', weight: 14, reason: 'Pressuring immediate action' },
+  { phrase: 'bank account', weight: 10, reason: 'Financial targeting' },
+  { phrase: 'social security', weight: 25, reason: 'Identity theft attempt' },
+  { phrase: 'password', weight: 15, reason: 'Credential harvesting attempt' },
+  { phrase: 'credit card', weight: 18, reason: 'Financial data phishing' },
+  { phrase: 'wire transfer', weight: 22, reason: 'Wire fraud indicator' },
+  { phrase: 'nigerian prince', weight: 30, reason: 'Classic advance-fee scam' },
+  { phrase: 'inheritance', weight: 18, reason: 'Inheritance scam pattern' },
+  { phrase: 'lottery', weight: 22, reason: 'Lottery scam indicator' },
+  { phrase: 'free gift', weight: 16, reason: 'Bait with free offers' },
+  { phrase: 'dear customer', weight: 10, reason: 'Generic impersonal greeting' },
+  { phrase: 'dear user', weight: 10, reason: 'Generic impersonal greeting' },
+  { phrase: 'account compromised', weight: 24, reason: 'Fear-based manipulation' },
+  { phrase: 'unusual activity', weight: 18, reason: 'Fake security alert' },
+  { phrase: 'confirm your identity', weight: 20, reason: 'Identity verification scam' },
+  { phrase: 'otp', weight: 12, reason: 'OTP interception attempt' },
+  { phrase: 'send money', weight: 20, reason: 'Direct money request' },
+  { phrase: 'bitcoin', weight: 12, reason: 'Cryptocurrency scam vector' },
+  { phrase: 'crypto', weight: 10, reason: 'Cryptocurrency scam vector' },
+  { phrase: 'investment opportunity', weight: 20, reason: 'Investment fraud indicator' },
+  { phrase: 'guaranteed return', weight: 22, reason: 'Fake investment promise' },
+  { phrase: 'risk free', weight: 18, reason: 'Unrealistic no-risk claim' },
+  { phrase: 'double your money', weight: 25, reason: 'Classic Ponzi scheme language' },
+];
+
+const SCAM_PATTERNS_MR = [
+  { phrase: 'बक्षीस', weight: 20, reason: 'बक्षीस जिंकण्याचा फसवणूक' },
+  { phrase: 'लॉटरी', weight: 22, reason: 'लॉटरी फसवणूक' },
+  { phrase: 'खाते बंद', weight: 22, reason: 'खाते बंद करण्याची धमकी' },
+  { phrase: 'तातडीने', weight: 16, reason: 'खोटी तातडी निर्माण करणे' },
+  { phrase: 'पैसे पाठवा', weight: 22, reason: 'पैसे मागणे' },
+  { phrase: 'ओटीपी', weight: 15, reason: 'OTP मागणे' },
+  { phrase: 'बँक', weight: 10, reason: 'बँकेच्या नावाने फसवणूक' },
+  { phrase: 'लिंक', weight: 12, reason: 'संशयास्पद लिंक' },
+  { phrase: 'मोफत', weight: 14, reason: 'मोफत ऑफर आमिष' },
+  { phrase: 'पासवर्ड', weight: 15, reason: 'पासवर्ड मागणे' },
+];
+
+const SUSPICIOUS_URL_PATTERNS = [
+  { pattern: /\.(xyz|tk|ml|ga|cf|gq|top|buzz|club|icu|work)$/i, weight: 25, reason: 'High-risk top-level domain commonly used in scams' },
+  { pattern: /[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/, weight: 30, reason: 'IP address used instead of domain name' },
+  { pattern: /(login|signin|verify|secure|account|update|confirm)/i, weight: 18, reason: 'Contains credential-harvesting keywords' },
+  { pattern: /\.(exe|scr|bat|cmd|msi|js|vbs|ps1)$/i, weight: 30, reason: 'Links to executable/script file' },
+  { pattern: /@/, weight: 20, reason: 'URL contains @ symbol (URL obfuscation technique)' },
+  { pattern: /bit\.ly|tinyurl|t\.co|is\.gd|goo\.gl|shorturl/i, weight: 12, reason: 'Shortened URL masking destination' },
+  { pattern: /(paypal|google|apple|microsoft|amazon|netflix|facebook).*\.(xyz|tk|ml|top)/i, weight: 35, reason: 'Brand impersonation on suspicious domain' },
+  { pattern: /[a-z]{20,}/i, weight: 15, reason: 'Unusually long subdomain (obfuscation)' },
+  { pattern: /https?:\/\/[^/]*-[^/]*-[^/]*\./i, weight: 12, reason: 'Multiple hyphens in domain (common in phishing)' },
+  { pattern: /free|prize|winner|claim|reward/i, weight: 15, reason: 'Scam-related keywords in URL' },
+];
+
+function analyzeContent(text, type) {
+  const lang = document.getElementById('lang-select').value;
+  const patterns = lang === 'mr' ? [...SCAM_PATTERNS_EN, ...SCAM_PATTERNS_MR] : SCAM_PATTERNS_EN;
+  const lower = text.toLowerCase();
+
+  let totalScore = 0;
+  const flagged = [];
+  const reasons = [];
+
+  patterns.forEach(p => {
+    if (lower.includes(p.phrase.toLowerCase())) {
+      totalScore += p.weight;
+      flagged.push(p.phrase);
+      reasons.push(p.reason);
+    }
+  });
+
+  const exclamationCount = (text.match(/!/g) || []).length;
+  if (exclamationCount > 3) { totalScore += 10; reasons.push('Excessive exclamation marks (emotional manipulation)'); }
+
+  const capsRatio = (text.match(/[A-Z]/g) || []).length / Math.max(text.length, 1);
+  if (capsRatio > 0.4 && text.length > 20) { totalScore += 12; reasons.push('Excessive capitalization (shouting tactic)'); }
+
+  if (/\$[\d,]+/.test(text) || /₹[\d,]+/.test(text)) { totalScore += 10; reasons.push('Specific monetary amount mentioned'); }
+
+  if (/(http|www\.)/i.test(text) && type === 'text') { totalScore += 8; reasons.push('Contains URL in message body'); }
+
+  const score = Math.min(totalScore, 100);
+  let riskLevel, riskColor;
+  if (score >= 50) { riskLevel = 'High'; riskColor = '#ff3b5c'; }
+  else if (score >= 25) { riskLevel = 'Medium'; riskColor = '#ffb020'; }
+  else { riskLevel = 'Low'; riskColor = '#00ff88'; }
+
+  let analysis = '';
+  if (riskLevel === 'High') {
+    analysis = `⚠️ This ${type} shows strong indicators of a phishing/fraud attempt. `;
+  } else if (riskLevel === 'Medium') {
+    analysis = `⚡ This ${type} contains some suspicious elements worth caution. `;
+  } else {
+    analysis = `✅ This ${type} appears to be relatively safe. `;
+  }
+  if (reasons.length > 0) {
+    analysis += 'Key findings: ' + reasons.slice(0, 4).join('; ') + '.';
+  } else {
+    analysis += 'No known scam patterns were detected in this content.';
+  }
+
+  return { score, riskLevel, riskColor, flagged, analysis, language: lang === 'mr' ? 'Marathi' : 'English' };
+}
+
+function analyzeUrlContent(url) {
+  let totalScore = 0;
+  const reasons = [];
+  const flagged = [];
+
+  SUSPICIOUS_URL_PATTERNS.forEach(p => {
+    if (p.pattern.test(url)) {
+      totalScore += p.weight;
+      reasons.push(p.reason);
+    }
+  });
+
+  if (!/^https:\/\//i.test(url)) {
+    totalScore += 15;
+    reasons.push('Not using HTTPS (insecure connection)');
+  }
+
+  if (/:\d{4,5}/.test(url)) {
+    totalScore += 12;
+    reasons.push('Unusual port number detected');
+  }
+
+  const score = Math.min(totalScore, 100);
+  let riskLevel, riskColor;
+  if (score >= 50) { riskLevel = 'High'; riskColor = '#ff3b5c'; }
+  else if (score >= 25) { riskLevel = 'Medium'; riskColor = '#ffb020'; }
+  else { riskLevel = 'Low'; riskColor = '#00ff88'; }
+
+  let analysis = '';
+  if (riskLevel === 'High') {
+    analysis = '⚠️ This URL shows strong indicators of being malicious. Do NOT click or visit this link. ';
+  } else if (riskLevel === 'Medium') {
+    analysis = '⚡ This URL has some suspicious characteristics. Exercise caution. ';
+  } else {
+    analysis = '✅ This URL appears relatively safe based on pattern analysis. ';
+  }
+  if (reasons.length > 0) {
+    analysis += 'Findings: ' + reasons.slice(0, 4).join('; ') + '.';
+  }
+
+  flagged.push(url);
+  return { score, riskLevel, riskColor, flagged, analysis, language: 'English' };
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function goToDashboard() {
+  currentView = 'dashboard';
+  updateNavButtons();
+  document.getElementById('dashboard-view').classList.remove('hidden');
+  document.getElementById('text-analyzer-view').classList.add('hidden');
+  document.getElementById('url-analyzer-view').classList.add('hidden');
+  document.getElementById('voice-analyzer-view').classList.add('hidden');
+  document.getElementById('result-panel').classList.add('hidden');
+  window.scrollTo(0, 0);
+}
+
+function goToAnalyzer(type) {
+  currentView = type;
+  updateNavButtons();
+  document.getElementById('dashboard-view').classList.add('hidden');
+  document.getElementById('text-analyzer-view').classList.toggle('hidden', type !== 'text');
+  document.getElementById('url-analyzer-view').classList.toggle('hidden', type !== 'url');
+  document.getElementById('voice-analyzer-view').classList.toggle('hidden', type !== 'voice');
+  document.getElementById('result-panel').classList.add('hidden');
+  window.scrollTo(0, 0);
+}
+
+function updateNavButtons() {
+  const buttons = document.querySelectorAll('.nav-btn');
+  buttons.forEach(btn => btn.classList.remove('nav-btn-active'));
+  const names = ['dashboard', 'text', 'url', 'voice'];
+  const idx = names.indexOf(currentView);
+  if (idx >= 0) buttons[idx].classList.add('nav-btn-active');
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+function switchAuthTab(mode) {
+  authMode = mode;
+  const loginTab = document.getElementById('login-tab');
+  const signupTab = document.getElementById('signup-tab');
+  const nameField = document.getElementById('name-field');
+  const submitBtn = document.getElementById('auth-submit-btn');
+  const errEl = document.getElementById('auth-error');
+  errEl.classList.add('hidden');
+
+  if (mode === 'login') {
+    loginTab.style.background = '#00ff8815'; loginTab.style.color = '#00ff88';
+    signupTab.style.background = 'transparent'; signupTab.style.color = '#6b7a8d';
+    nameField.classList.add('hidden');
+    submitBtn.textContent = 'Sign In';
+  } else {
+    signupTab.style.background = '#00ff8815'; signupTab.style.color = '#00ff88';
+    loginTab.style.background = 'transparent'; loginTab.style.color = '#6b7a8d';
+    nameField.classList.remove('hidden');
+    submitBtn.textContent = 'Create Account';
+  }
+}
+
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function handleAuth(e) {
+  e.preventDefault();
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const name = document.getElementById('auth-name').value.trim();
+  const otpInput = document.getElementById('auth-otp').value.trim();
+  const otpSection = document.getElementById('otp-section');
+  const errEl = document.getElementById('auth-error');
+
+  if (otpEnabled && currentOtp && !otpInput) {
+    errEl.textContent = 'Please enter the OTP code sent to your email.'; errEl.classList.remove('hidden'); return;
+  }
+  if (otpEnabled && currentOtp && otpInput !== currentOtp) {
+    errEl.textContent = 'Invalid OTP code. Please try again.'; errEl.classList.remove('hidden'); return;
+  }
+
+  if (authMode === 'signup') {
+    if (!name) { errEl.textContent = 'Please enter your name.'; errEl.classList.remove('hidden'); return; }
+    if (users[email]) { errEl.textContent = 'Account already exists. Sign in instead.'; errEl.classList.remove('hidden'); return; }
+    
+    if (otpEnabled && !currentOtp) {
+      sendOtp(email);
+      otpSection.classList.remove('hidden');
+      errEl.classList.add('hidden');
+      document.getElementById('auth-otp').focus();
+      return;
+    }
+
+    users[email] = { name, password };
+    showToast('Account created successfully!', 'success');
+    currentUser = { email, name };
+    resetOtp();
+  } else {
+    if (otpEnabled && !currentOtp) {
+      sendOtp(email);
+      otpSection.classList.remove('hidden');
+      errEl.classList.add('hidden');
+      document.getElementById('auth-otp').focus();
+      return;
+    }
+
+    if (users[email]) {
+      if (users[email].password !== password) {
+        errEl.textContent = 'Incorrect password.'; errEl.classList.remove('hidden'); return;
+      }
+      currentUser = { email, name: users[email].name };
+    } else {
+      users[email] = { name: email.split('@')[0], password };
+      currentUser = { email, name: email.split('@')[0] };
+    }
+    resetOtp();
+  }
+
+  errEl.classList.add('hidden');
+  otpSection.classList.add('hidden');
+  document.getElementById('auth-otp').value = '';
+  showDashboard();
+}
+
+function sendOtp(email) {
+  currentOtp = generateOtp();
+  currentAuthEmail = email;
+  otpTimeRemaining = 60;
+  document.getElementById('otp-email-display').textContent = email;
+  document.getElementById('auth-otp').value = '';
+  
+  const resendBtn = document.getElementById('otp-resend-btn');
+  resendBtn.disabled = true;
+  resendBtn.style.opacity = '0.5';
+  resendBtn.style.cursor = 'not-allowed';
+  
+  startOtpTimer();
+  
+  // Show persistent mailbox with OTP
+  showEmailMailbox(email, currentOtp);
+}
+
+function showEmailMailbox(email, otp) {
+  // Remove existing mailbox if present
+  const existingMailbox = document.getElementById('otp-mailbox-container');
+  if (existingMailbox) existingMailbox.remove();
+
+  // Create a persistent mailbox panel
+  const mailboxContainer = document.createElement('div');
+  mailboxContainer.id = 'otp-mailbox-container';
+  mailboxContainer.style.cssText = `
+    position: fixed;
+    right: 20px;
+    top: 20px;
+    width: 320px;
+    max-height: 500px;
+    background: #0d1520;
+    border: 1px solid #1a2535;
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 9997;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    animation: fadeSlideUp 0.3s ease-out;
+    display: flex;
+    flex-direction: column;
+  `;
+
+  mailboxContainer.innerHTML = `
+    <div style="background:linear-gradient(90deg,#1a2a3a,#0d1520);border-bottom:1px solid #1a2535;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <i data-lucide="mail" style="width:16px;height:16px;color:#00ff88;"></i>
+        <h3 style="color:#c8d6e5;font-size:13px;font-weight:bold;">Inbox</h3>
+      </div>
+      <button onclick="document.getElementById('otp-mailbox-container').remove()" style="background:none;border:none;color:#6b7a8d;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
+        <i data-lucide="x" style="width:14px;height:14px;"></i>
+      </button>
+    </div>
+
+    <div style="flex:1;overflow-auto;padding:8px;">
+      <div style="background:#1a2a3a;border-left:3px solid #00ff88;border-radius:8px;padding:12px;cursor:pointer;transition:background 0.2s;hover:background:#1a2a3a;" onmouseover="this.style.background='#1a3a3a'" onmouseout="this.style.background='#1a2a3a'">
+        <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+          <i data-lucide="shield-check" style="width:14px;height:14px;color:#00ff88;flex-shrink:0;margin-top:2px;"></i>
+          <div style="flex:1;min-width:0;">
+            <p style="color:#c8d6e5;font-size:12px;font-weight:600;margin-bottom:2px;">Your SentinelAI Verification Code</p>
+            <p style="color:#6b7a8d;font-size:11px;margin-bottom:6px;">from: security@sentinelai.com</p>
+            <div style="background:#0a0f1a;border:1px solid #00ff8830;border-radius:6px;padding:8px;text-align:center;">
+              <p style="color:#6b7a8d;font-size:10px;margin-bottom:4px;">Verification Code</p>
+              <p style="color:#00ff88;font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:bold;letter-spacing:4px;margin:0;">${otp}</p>
+            </div>
+            <p style="color:#3a4a5a;font-size:10px;margin-top:6px;">Expires in <span id="mailbox-timer" style="color:#ffb020;font-weight:bold;">01:00</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(mailboxContainer);
+  lucide.createIcons();
+
+  // Update mailbox timer separately
+  updateMailboxTimer();
+}
+
+function updateMailboxTimer() {
+  const timerEl = document.getElementById('mailbox-timer');
+  if (!timerEl) return;
+  
+  const mins = Math.floor(otpTimeRemaining / 60);
+  const secs = otpTimeRemaining % 60;
+  timerEl.textContent = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+}
+
+function resendOtp() {
+  if (currentAuthEmail) {
+    sendOtp(currentAuthEmail);
+    showToast('OTP resent to your email', 'success');
+  }
+}
+
+function startOtpTimer() {
+  if (otpTimerInterval) clearInterval(otpTimerInterval);
+  
+  const updateTimer = () => {
+    const mins = Math.floor(otpTimeRemaining / 60);
+    const secs = otpTimeRemaining % 60;
+    const timeStr = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    
+    const authTimer = document.getElementById('otp-timer');
+    if (authTimer) authTimer.textContent = timeStr;
+    
+    updateMailboxTimer();
+    
+    if (otpTimeRemaining <= 0) {
+      clearInterval(otpTimerInterval);
+      const resendBtn = document.getElementById('otp-resend-btn');
+      resendBtn.disabled = false;
+      resendBtn.style.opacity = '1';
+      resendBtn.style.cursor = 'pointer';
+      if (authTimer) authTimer.textContent = '00:00';
+    }
+    otpTimeRemaining--;
+  };
+  
+  updateTimer();
+  otpTimerInterval = setInterval(updateTimer, 1000);
+}
+
+function resetOtp() {
+  if (otpTimerInterval) clearInterval(otpTimerInterval);
+  currentOtp = null;
+  currentAuthEmail = null;
+  otpTimeRemaining = 60;
+  document.getElementById('otp-timer').textContent = '01:00';
+  const resendBtn = document.getElementById('otp-resend-btn');
+  resendBtn.disabled = true;
+  resendBtn.style.opacity = '0.5';
+  resendBtn.style.cursor = 'not-allowed';
+}
+
+function showDashboard() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('dashboard-screen').classList.remove('hidden');
+  document.getElementById('user-display').textContent = currentUser.name || currentUser.email;
+  lucide.createIcons();
+  updateStats();
+  renderHistory();
+}
+
+function handleLogout() {
+  currentUser = null;
+  currentView = 'dashboard';
+  document.getElementById('dashboard-screen').classList.add('hidden');
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('auth-form').reset();
+  document.getElementById('auth-error').classList.add('hidden');
+}
+
+// ============================================================
+// ANALYSIS ACTIONS
+// ============================================================
+async function analyzeText() {
+  const text = document.getElementById('text-input').value.trim();
+  if (!text) { showToast('Please enter a message to analyze.', 'error'); return; }
+  const btn = document.getElementById('btn-analyze-text');
+  btn.disabled = true; btn.innerHTML = '<span class="animate-pulse">Analyzing...</span>';
+
+  await simulateDelay(800);
+  const result = analyzeContent(text, 'message');
+  displayResult(result);
+  await saveScan('Text', text, result);
+
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="zap" style="width:16px;height:16px;"></i> Analyze Message';
+  lucide.createIcons();
+}
+
+async function analyzeUrl() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url) { showToast('Please enter a URL to scan.', 'error'); return; }
+  const btn = document.getElementById('btn-analyze-url');
+  btn.disabled = true; btn.innerHTML = '<span class="animate-pulse">Scanning...</span>';
+
+  await simulateDelay(1000);
+  const result = analyzeUrlContent(url);
+  displayResult(result);
+  await saveScan('URL', url, result);
+
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="shield" style="width:16px;height:16px;"></i> Scan URL';
+  lucide.createIcons();
+}
+
+async function analyzeVoice() {
+  const text = document.getElementById('voice-input').value.trim();
+  if (!text) { showToast('Please enter a voice transcript to analyze.', 'error'); return; }
+  const btn = document.getElementById('btn-analyze-voice');
+  btn.disabled = true; btn.innerHTML = '<span class="animate-pulse">Processing transcript...</span>';
+
+  await simulateDelay(1200);
+  const result = analyzeContent(text, 'voice transcript');
+  displayResult(result);
+  await saveScan('Voice', text, result);
+
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="volume-2" style="width:16px;height:16px;"></i> Analyze Transcript';
+  lucide.createIcons();
+}
+
+function displayResult(result) {
+  const panel = document.getElementById('result-panel');
+  panel.classList.remove('hidden');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const card = document.getElementById('result-card');
+  card.className = 'rounded-xl p-5';
+  card.classList.add(result.riskLevel === 'High' ? 'risk-high' : result.riskLevel === 'Medium' ? 'risk-medium' : 'risk-low');
+  card.style.background = '#0a0f1a';
+  card.style.border = '1px solid #1a2535';
+
+  const badge = document.getElementById('result-badge');
+  badge.textContent = result.riskLevel + ' Risk';
+  badge.style.background = result.riskColor + '20';
+  badge.style.color = result.riskColor;
+
+  document.getElementById('result-score-text').textContent = result.score + '/100';
+  document.getElementById('result-score-text').style.color = result.riskColor;
+
+  const bar = document.getElementById('result-score-bar');
+  bar.style.width = result.score + '%';
+  bar.style.background = result.riskColor;
+
+  document.getElementById('result-analysis').textContent = result.analysis;
+
+  const flaggedSection = document.getElementById('flagged-section');
+  const flaggedEl = document.getElementById('flagged-phrases');
+  if (result.flagged.length > 0) {
+    flaggedSection.classList.remove('hidden');
+    flaggedEl.innerHTML = result.flagged.map(p => {
+      return `<span class="highlight-phrase">${escapeHtml(p)}</span>`;
+    }).join('');
+  } else {
+    flaggedSection.classList.add('hidden');
+  }
+
+  lucide.createIcons();
+}
+
+async function saveScan(type, content, result) {
+  if (scanHistory.length >= 999) {
+    showToast('Storage limit reached. Please clear some history.', 'error');
+    return;
+  }
+  const record = {
+    type: type,
+    content: content.substring(0, 500),
+    risk_level: result.riskLevel,
+    risk_score: result.score,
+    analysis: result.analysis.substring(0, 500),
+    flagged_phrases: result.flagged.join(', ').substring(0, 300),
+    timestamp: new Date().toISOString(),
+    language: result.language
+  };
+
+  const res = await window.dataSdk.create(record);
+  if (res.isOk) {
+    showToast('Scan saved to history.', 'success');
+  } else {
+    showToast('Failed to save scan.', 'error');
+  }
+}
+
+// ============================================================
+// HISTORY RENDERING
+// ============================================================
+function renderHistory() {
+  const container = document.getElementById('history-list');
+  const emptyState = document.getElementById('history-empty');
+  const clearBtn = document.getElementById('btn-clear-all');
+
+  if (scanHistory.length === 0) {
+    emptyState.classList.remove('hidden');
+    clearBtn.classList.add('hidden');
+    [...container.children].forEach(el => {
+      if (el.id !== 'history-empty') el.remove();
+    });
+    return;
+  }
+
+  emptyState.classList.add('hidden');
+  clearBtn.classList.remove('hidden');
+
+  const existingMap = new Map();
+  [...container.children].forEach(el => {
+    if (el.dataset.scanId) existingMap.set(el.dataset.scanId, el);
+  });
+
+  const sorted = [...scanHistory].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const currentIds = new Set(sorted.map(s => s.__backendId));
+
+  existingMap.forEach((el, id) => {
+    if (!currentIds.has(id)) el.remove();
+  });
+
+  let previousEl = null;
+  sorted.forEach(scan => {
+    const id = scan.__backendId;
+    let el = existingMap.get(id);
+    if (el) {
+      updateHistoryItem(el, scan);
+    } else {
+      el = createHistoryItem(scan);
+      if (previousEl && previousEl.nextSibling) {
+        container.insertBefore(el, previousEl.nextSibling);
+      } else if (!previousEl) {
+        container.prepend(el);
+      } else {
+        container.appendChild(el);
+      }
+    }
+    previousEl = el;
+  });
+
+  updateStats();
+  lucide.createIcons();
+}
+
+function createHistoryItem(scan) {
+  const el = document.createElement('div');
+  el.dataset.scanId = scan.__backendId;
+  el.className = 'rounded-lg p-3 mb-2 transition-all animate-fade-up cursor-default';
+  el.style.cssText = 'background:#0a0f1a;border:1px solid #1a2535;';
+  updateHistoryItem(el, scan);
+  return el;
+}
+
+function updateHistoryItem(el, scan) {
+  const riskColor = scan.risk_level === 'High' ? '#ff3b5c' : scan.risk_level === 'Medium' ? '#ffb020' : '#00ff88';
+  const typeIcon = scan.type === 'URL' ? 'link' : scan.type === 'Voice' ? 'mic' : 'message-square';
+  const timeStr = formatTime(scan.timestamp);
+
+  el.innerHTML = `
+    <div class="flex items-start justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <i data-lucide="${typeIcon}" style="width:14px;height:14px;color:${riskColor};flex-shrink:0;"></i>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-0.5">
+            <span class="text-xs font-bold" style="color:${riskColor};">${scan.risk_level}</span>
+            <span class="text-xs" style="color:#3a4a5a;">·</span>
+            <span class="text-xs" style="color:#3a4a5a;">${scan.risk_score}/100</span>
+            <span class="text-xs" style="color:#3a4a5a;">·</span>
+            <span class="text-xs" style="color:#3a4a5a;">${scan.type}</span>
+          </div>
+          <p class="text-xs truncate" style="color:#6b7a8d;">${escapeHtml(scan.content.substring(0, 80))}${scan.content.length > 80 ? '...' : ''}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <span class="text-xs" style="color:#3a4a5a;">${timeStr}</span>
+        <button onclick="requestDeleteScan('${scan.__backendId}')" class="p-1 rounded transition-all hover:opacity-80" style="color:#ff3b5c40;" title="Delete">
+          <i data-lucide="x" style="width:12px;height:12px;"></i>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = scanHistory.length;
+  document.getElementById('stat-high').textContent = scanHistory.filter(s => s.risk_level === 'High').length;
+  document.getElementById('stat-medium').textContent = scanHistory.filter(s => s.risk_level === 'Medium').length;
+  document.getElementById('stat-low').textContent = scanHistory.filter(s => s.risk_level === 'Low').length;
+}
+
+// ============================================================
+// DELETE / CLEAR
+// ============================================================
+function requestDeleteScan(backendId) {
+  const scan = scanHistory.find(s => s.__backendId === backendId);
+  if (!scan) return;
+  showConfirm('Delete Scan', 'Remove this scan from history?', async () => {
+    const res = await window.dataSdk.delete(scan);
+    if (res.isOk) {
+      showToast('Scan deleted.', 'success');
+    } else {
+      showToast('Failed to delete scan.', 'error');
+    }
+  });
+}
+
+function requestClearAll() {
+  showConfirm('Clear All History', 'This will permanently delete all scan records. Continue?', async () => {
+    let failed = 0;
+    for (const scan of [...scanHistory]) {
+      const res = await window.dataSdk.delete(scan);
+      if (!res.isOk) failed++;
+    }
+    if (failed > 0) showToast(`${failed} records failed to delete.`, 'error');
+    else showToast('History cleared.', 'success');
+  });
+}
+
+// ============================================================
+// CONFIRM DIALOG
+// ============================================================
+function showConfirm(title, message, callback) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-message').textContent = message;
+  document.getElementById('confirm-dialog').classList.remove('hidden');
+  confirmCallback = callback;
+}
+
+function cancelConfirm() {
+  document.getElementById('confirm-dialog').classList.add('hidden');
+  confirmCallback = null;
+}
+
+function executeConfirm() {
+  document.getElementById('confirm-dialog').classList.add('hidden');
+  if (confirmCallback) confirmCallback();
+  confirmCallback = null;
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(message, type) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function escapeHtml(str) {
+  const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
+}
+
+function simulateDelay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+function formatTime(iso) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffMs = now - d;
+  if (diffMs < 60000) return 'Just now';
+  if (diffMs < 3600000) return Math.floor(diffMs/60000) + 'm ago';
+  if (diffMs < 86400000) return Math.floor(diffMs/3600000) + 'h ago';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// ============================================================
+// SDK INITIALIZATION
+// ============================================================
+const defaultConfig = {
+  app_title: 'SentinelAI',
+  tagline: 'Real-Time Fraud Detection',
+  background_color: '#060b14',
+  surface_color: '#0d1520',
+  text_color: '#c8d6e5',
+  primary_action_color: '#00ff88',
+  secondary_action_color: '#ff3b5c',
+  font_family: 'Outfit',
+  font_size: 14
+};
+
+function applyConfig(config) {
+  const title = config.app_title || defaultConfig.app_title;
+  const tagline = config.tagline || defaultConfig.tagline;
+  const bg = config.background_color || defaultConfig.background_color;
+  const surface = config.surface_color || defaultConfig.surface_color;
+  const textCol = config.text_color || defaultConfig.text_color;
+  const primary = config.primary_action_color || defaultConfig.primary_action_color;
+  const secondary = config.secondary_action_color || defaultConfig.secondary_action_color;
+  const font = config.font_family || defaultConfig.font_family;
+  const fontSize = config.font_size || defaultConfig.font_size;
+
+  const fontStack = `${font}, Outfit, sans-serif`;
+
+  const authTitle = document.getElementById('auth-title');
+  if (authTitle) { authTitle.textContent = title; authTitle.style.color = primary; authTitle.style.fontFamily = fontStack; }
+  const authTagline = document.getElementById('auth-tagline');
+  if (authTagline) { authTagline.textContent = tagline; authTagline.style.fontFamily = fontStack; }
+  const navTitle = document.getElementById('nav-title');
+  if (navTitle) { navTitle.textContent = title; navTitle.style.color = primary; navTitle.style.fontFamily = fontStack; }
+
+  document.body.style.background = bg;
+  const appRoot = document.getElementById('app-root');
+  if (appRoot) appRoot.style.background = bg;
+
+  document.body.style.fontSize = fontSize + 'px';
+  document.body.style.fontFamily = fontStack;
+}
+
+window.elementSdk.init({
+  defaultConfig,
+  onConfigChange: async (config) => {
+    applyConfig(config);
+    otpEnabled = config.otp_enabled === 'false' ? false : true;
+  },
+  mapToCapabilities: (config) => ({
+    recolorables: [
+      { get: () => config.background_color || defaultConfig.background_color, set: (v) => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); } },
+      { get: () => config.surface_color || defaultConfig.surface_color, set: (v) => { config.surface_color = v; window.elementSdk.setConfig({ surface_color: v }); } },
+      { get: () => config.text_color || defaultConfig.text_color, set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); } },
+      { get: () => config.primary_action_color || defaultConfig.primary_action_color, set: (v) => { config.primary_action_color = v; window.elementSdk.setConfig({ primary_action_color: v }); } },
+      { get: () => config.secondary_action_color || defaultConfig.secondary_action_color, set: (v) => { config.secondary_action_color = v; window.elementSdk.setConfig({ secondary_action_color: v }); } },
+    ],
+    borderables: [],
+    fontEditable: {
+      get: () => config.font_family || defaultConfig.font_family,
+      set: (v) => { config.font_family = v; window.elementSdk.setConfig({ font_family: v }); }
+    },
+    fontSizeable: {
+      get: () => config.font_size || defaultConfig.font_size,
+      set: (v) => { config.font_size = v; window.elementSdk.setConfig({ font_size: v }); }
+    }
+  }),
+  mapToEditPanelValues: (config) => new Map([
+    ['app_title', config.app_title || defaultConfig.app_title],
+    ['tagline', config.tagline || defaultConfig.tagline],
+    ['otp_enabled', config.otp_enabled || 'true']
+  ])
+});
+
+const dataHandler = {
+  onDataChanged(data) {
+    scanHistory = data;
+    renderHistory();
+  }
+};
+
+(async () => {
+  const res = await window.dataSdk.init(dataHandler);
+  if (!res.isOk) {
+    console.error('Data SDK init failed');
+  }
+})();
+
+lucide.createIcons();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9dfeb7ab5571ff97',t:'MTc3NDExNDU3Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
